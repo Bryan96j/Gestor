@@ -732,6 +732,30 @@
     }
     </style>
 </head>
+
+<!-- Botón para abrir la lista de clientes -->
+<div style="text-align:center; margin-top: 20px;">
+    <button class="btn btn-submit" id="open-client-list"><i class="fas fa-users"></i> Ver Lista de Clientes</button>
+</div>
+
+<!-- Modal de lista de clientes -->
+<div class="modal" id="client-list-modal">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h2 class="modal-title"><i class="fas fa-users"></i> Lista de Clientes</h2>
+            <button class="modal-close" id="close-client-list">&times;</button>
+        </div>
+        <div class="modal-body" id="client-list-body">
+            <!-- Aquí se cargan los datos dinámicamente -->
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-submit" id="share-whatsapp">
+                <i class="fab fa-whatsapp"></i> Compartir por WhatsApp
+            </button>
+        </div>
+    </div>
+</div>
+
 <body>
     <div class="container">
         <header>
@@ -920,6 +944,27 @@
                 </div>
             </div>
         </div>
+
+        <!-- Modal de edición de pagos -->
+        <div class="modal" id="payment-modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title"><i class="fas fa-money-bill-wave"></i> Editar Pago</h2>
+                    <button class="modal-close" id="close-payment-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p id="payment-modal-client" style="margin-bottom: 10px;"></p>
+                    <div class="form-group">
+                        <label for="payment-amount">Monto Pagado (₡)</label>
+                        <input type="number" id="payment-amount" min="0" placeholder="Ingrese el monto pagado">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-submit" id="save-payment-btn"><i class="fas fa-save"></i> Guardar Pago</button>
+                </div>
+            </div>
+        </div>
+
         
         <footer>
             <p>Sistema de Gestión de Asientos &copy; 2025 | Bryan E.P 🤙</p>
@@ -1301,6 +1346,110 @@
                     saveData();
                 }
                 
+            // Elementos del modal de clientes
+            const clientListModal = document.getElementById('client-list-modal');
+            const openClientListBtn = document.getElementById('open-client-list');
+            const closeClientListBtn = document.getElementById('close-client-list');
+            const clientListBody = document.getElementById('client-list-body');
+            const shareWhatsappBtn = document.getElementById('share-whatsapp');
+
+            // Objeto para almacenar pagos de clientes
+            let clientPayments = {};
+
+            // Mostrar modal de clientes
+            openClientListBtn.addEventListener('click', () => {
+                const allSeats = seats[currentVehicle];
+                const clientMap = {};
+
+                // Agrupar por cliente
+                allSeats.forEach(seat => {
+                    if (seat.client.trim()) {
+                        if (!clientMap[seat.client]) {
+                            clientMap[seat.client] = [];
+                        }
+                        clientMap[seat.client].push(seat.id);
+                    }
+                });
+
+                // Construir HTML
+                clientListBody.innerHTML = '';
+                Object.entries(clientMap).forEach(([client, seatNumbers]) => {
+                    const amount = clientPayments[client] || 0;
+
+                    const div = document.createElement('div');
+                    div.style.marginBottom = '15px';
+                    div.innerHTML = `
+                        <strong>${client}</strong> - Asientos: ${seatNumbers.join(', ')}<br>
+                        Monto pagado: ₡<span id="amount-${client}">${amount}</span>
+                        <button class="btn btn-update" onclick="editPayment('${client}')">Editar Pago</button>
+                    `;
+                    clientListBody.appendChild(div);
+                });
+
+                clientListModal.classList.add('active');
+            });
+            // Cerrar modal
+            closeClientListBtn.addEventListener('click', () => {
+            clientListModal.classList.remove('active');
+            });
+
+            // Editar monto pagado
+            window.editPayment = function (client) {
+                editingClient = client;
+                paymentModalClient.textContent = `Cliente: ${client}`;
+                paymentAmountInput.value = clientPayments[client] || '';
+                paymentModal.classList.add('active');
+            };
+
+            // Compartir por WhatsApp
+            shareWhatsappBtn.addEventListener('click', () => {
+                const allSeats = seats[currentVehicle];
+                const clientMap = {};
+
+                allSeats.forEach(seat => {
+                    if (seat.client.trim()) {
+                        if (!clientMap[seat.client]) clientMap[seat.client] = [];
+                        clientMap[seat.client].push(seat.id);
+                    }
+                });
+
+                let message = '*Reservas de Clientes:*\n\n';
+                for (let client in clientMap) {
+                    const seatsList = clientMap[client].join(', ');
+                    const paid = clientPayments[client] || 0;
+                    message += `👤 ${client}:\n🎟️ Asientos: ${seatsList}\n💰 Pagado: ₡${paid}\n\n`;
+                }
+
+                const encodedMsg = encodeURIComponent(message);
+                const whatsappURL = `https://wa.me/?text=${encodedMsg}`;
+                window.open(whatsappURL, '_blank');
+            });
+
+            // Modal de edición de pago
+            const paymentModal = document.getElementById('payment-modal');
+            const paymentModalClient = document.getElementById('payment-modal-client');
+            const paymentAmountInput = document.getElementById('payment-amount');
+            const closePaymentModal = document.getElementById('close-payment-modal');
+            const savePaymentBtn = document.getElementById('save-payment-btn');
+            let editingClient = null;
+
+            // Cerrar modal de pago
+            closePaymentModal.addEventListener('click', () => {
+                paymentModal.classList.remove('active');
+            });
+
+            // Guardar pago
+            savePaymentBtn.addEventListener('click', () => {
+                const value = parseFloat(paymentAmountInput.value);
+                if (!isNaN(value) && editingClient) {
+                    clientPayments[editingClient] = value;
+                    document.getElementById(`amount-${editingClient}`).textContent = value;
+                    paymentModal.classList.remove('active');
+                } else {
+                    alert('Por favor ingrese un monto válido.');
+                }
+            });
+            
                 renderSeatMap();
                 updateStats();
             }, 500);
