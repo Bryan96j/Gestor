@@ -601,6 +601,74 @@
         .notification-modal .btn-confirm {
             margin: 0 auto;
         }
+        
+        /* SOLUCIÓN PARA EL SCROLL EN LISTA DE CLIENTES */
+        #client-list-body {
+            max-height: 50vh;
+            overflow-y: auto;
+            width: 100%;
+            padding: 10px;
+            border-radius: 10px;
+            background: rgba(0,0,0,0.1);
+            scrollbar-width: thin;
+            scrollbar-color: #4cc9f0 transparent;
+        }
+        
+        #client-list-body::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        #client-list-body::-webkit-scrollbar-thumb {
+            background-color: #4cc9f0;
+            border-radius: 10px;
+        }
+        
+        #client-list-body::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .client-item {
+            margin-bottom: 15px;
+            padding: 15px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.05);
+            border-left: 4px solid #4cc9f0;
+        }
+        
+        .client-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .client-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        
+        .client-seats {
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+        }
+        
+        .client-payment {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .payment-amount {
+            font-weight: bold;
+            color: #4cc9f0;
+        }
+        
+        .empty-list-message {
+            text-align: center;
+            opacity: 0.7;
+            padding: 20px;
+            font-style: italic;
+        }
 
         /* Responsive */
         @media (max-width: 768px) {
@@ -622,6 +690,15 @@
             
             .stats {
                 flex-direction: column;
+            }
+            
+            /* Ajustes para lista de clientes en móviles */
+            #client-list-body {
+                max-height: 60vh;
+            }
+            
+            .client-item {
+                padding: 12px;
             }
         }
         
@@ -677,11 +754,8 @@
             .stat-info {
                 font-size: 1.6rem;
             }
-
-            /* Añadir al final del CSS existente, dentro de la sección de media queries */
-        @media (max-width: 480px) {
-                /* ... otros estilos responsive ... */
-                /* Reducción de tamaño para botones en dispositivos móviles */
+            
+            /* Reducción de tamaño para botones en dispositivos móviles */
             .btn {
                 padding: 8px 15px;
                 font-size: 0.9rem;
@@ -729,7 +803,6 @@
                 height: 60px;
             }
         }
-    }
     </style>
 </head>
 <body>
@@ -867,8 +940,10 @@
                     <h2 class="modal-title"><i class="fas fa-users"></i> Lista de Clientes</h2>
                     <button class="modal-close" id="close-client-list">&times;</button>
                 </div>
-                <div class="modal-body" id="client-list-body">
-                    <!-- Aquí se cargan los datos dinámicamente -->
+                <div class="modal-body">
+                    <div id="client-list-body">
+                        <!-- Aquí se cargan los datos dinámicamente -->
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-submit" id="share-whatsapp">
@@ -1075,6 +1150,21 @@
             const clientNameInput = document.getElementById('client-name');
             const seatCountInput = document.getElementById('seat-count');
             
+            // Elementos del modal de clientes
+            const clientListModal = document.getElementById('client-list-modal');
+            const openClientListBtn = document.getElementById('open-client-list');
+            const closeClientListBtn = document.getElementById('close-client-list');
+            const clientListBody = document.getElementById('client-list-body');
+            const shareWhatsappBtn = document.getElementById('share-whatsapp');
+            
+            // Modal de edición de pagos
+            const paymentModal = document.getElementById('payment-modal');
+            const paymentModalClient = document.getElementById('payment-modal-client');
+            const paymentAmountInput = document.getElementById('payment-amount');
+            const closePaymentModal = document.getElementById('close-payment-modal');
+            const savePaymentBtn = document.getElementById('save-payment-btn');
+            let editingClient = null;
+            
             let currentVehicle = 'bus';
             let currentSeat = null;
             
@@ -1082,22 +1172,6 @@
             loadData();
             renderSeatMap();
             updateStats();
-
-            // =====================================================
-            // INICIALIZACIÓN PRINCIPAL CON MIGRACIÓN DE DATOS
-            // =====================================================
-            const migrationDone = loadData();  // Cargar y migrar datos
-            renderSeatMap();
-            updateStats();
-        
-            if (migrationDone) {
-                console.log("Datos migrados correctamente");
-            } else {
-                console.log("No se encontraron datos antiguos para migrar");
-            }
-
-
-
             
             // Función para mostrar notificaciones personalizadas
             function showNotification(title, message, type = 'info') {
@@ -1376,23 +1450,8 @@
                 seatCountInput.classList.remove('input-error');
             });
             
-            // Elementos del modal de clientes
-            const clientListModal = document.getElementById('client-list-modal');
-            const openClientListBtn = document.getElementById('open-client-list');
-            const closeClientListBtn = document.getElementById('close-client-list');
-            const clientListBody = document.getElementById('client-list-body');
-            const shareWhatsappBtn = document.getElementById('share-whatsapp');
-            
-            // Modal de edición de pagos
-            const paymentModal = document.getElementById('payment-modal');
-            const paymentModalClient = document.getElementById('payment-modal-client');
-            const paymentAmountInput = document.getElementById('payment-amount');
-            const closePaymentModal = document.getElementById('close-payment-modal');
-            const savePaymentBtn = document.getElementById('save-payment-btn');
-            let editingClient = null;
-            
-            // Mostrar lista de clientes
-            openClientListBtn.addEventListener('click', () => {
+            // Función para mostrar la lista de clientes con scroll
+            function renderClientList() {
                 const allSeats = appData.seats[currentVehicle];
                 const clientMap = {};
                 
@@ -1400,28 +1459,46 @@
                 allSeats.forEach(seat => {
                     if (seat.client.trim()) {
                         if (!clientMap[seat.client]) {
-                            clientMap[seat.client] = [];
+                            clientMap[seat.client] = {
+                                seats: [],
+                                payment: appData.payments[seat.client] || 0
+                            };
                         }
-                        clientMap[seat.client].push(seat.id);
+                        clientMap[seat.client].seats.push(seat.id);
                     }
                 });
                 
-                // Construir HTML
+                // Construir HTML con nuevo formato
                 clientListBody.innerHTML = '';
-                Object.entries(clientMap).forEach(([client, seatNumbers]) => {
-                    // Usar appData.payments para obtener el monto
-                    const amount = appData.payments[client] || 0;
-                    
+                
+                if (Object.keys(clientMap).length === 0) {
+                    clientListBody.innerHTML = '<p class="empty-list-message">No hay clientes registrados</p>';
+                    return;
+                }
+                
+                Object.entries(clientMap).forEach(([client, data]) => {
                     const div = document.createElement('div');
-                    div.style.marginBottom = '15px';
+                    div.className = 'client-item';
                     div.innerHTML = `
-                        <strong>${client}</strong> - Asientos: ${seatNumbers.join(', ')}<br>
-                        Monto pagado: ₡<span id="amount-${client}">${amount.toLocaleString('es-CR')}</span>
-                        <button class="btn btn-update" onclick="editPayment('${client}')">Editar Pago</button>
+                        <div class="client-header">
+                            <div class="client-name">${client}</div>
+                            <button class="btn btn-update" onclick="editPayment('${client}')">
+                                <i class="fas fa-edit"></i> Editar
+                            </button>
+                        </div>
+                        <div class="client-seats">Asientos: ${data.seats.join(', ')}</div>
+                        <div class="client-payment">
+                            <div>Monto pagado:</div>
+                            <div class="payment-amount">₡${data.payment.toLocaleString('es-CR')}</div>
+                        </div>
                     `;
                     clientListBody.appendChild(div);
                 });
-                
+            }
+            
+            // Mostrar lista de clientes
+            openClientListBtn.addEventListener('click', () => {
+                renderClientList();
                 clientListModal.classList.add('active');
             });
             
@@ -1441,14 +1518,15 @@
                     appData.payments[editingClient] = value;
                     
                     // Actualizar UI inmediatamente
-                    document.getElementById(`amount-${editingClient}`).textContent = value.toLocaleString('es-CR');
+                    renderClientList();
                     
                     // Guardar en localStorage
                     saveData();
                     
                     paymentModal.classList.remove('active');
+                    showNotification('Pago Actualizado', `El monto pagado por ${editingClient} ha sido actualizado`, 'success');
                 } else {
-                    alert('Por favor ingrese un monto válido.');
+                    showNotification('Error', 'Por favor ingrese un monto válido', 'error');
                 }
             });
             
