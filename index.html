@@ -732,30 +732,6 @@
     }
     </style>
 </head>
-
-<!-- Botón para abrir la lista de clientes -->
-<div style="text-align:center; margin-top: 20px;">
-    <button class="btn btn-submit" id="open-client-list"><i class="fas fa-users"></i> Ver Lista de Clientes</button>
-</div>
-
-<!-- Modal de lista de clientes -->
-<div class="modal" id="client-list-modal">
-    <div class="modal-content" style="max-width: 600px;">
-        <div class="modal-header">
-            <h2 class="modal-title"><i class="fas fa-users"></i> Lista de Clientes</h2>
-            <button class="modal-close" id="close-client-list">&times;</button>
-        </div>
-        <div class="modal-body" id="client-list-body">
-            <!-- Aquí se cargan los datos dinámicamente -->
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-submit" id="share-whatsapp">
-                <i class="fab fa-whatsapp"></i> Compartir por WhatsApp
-            </button>
-        </div>
-    </div>
-</div>
-
 <body>
     <div class="container">
         <header>
@@ -879,6 +855,29 @@
             </div>
         </div>
         
+        <!-- Botón para abrir la lista de clientes -->
+        <div style="text-align:center; margin-top: 20px;">
+            <button class="btn btn-submit" id="open-client-list"><i class="fas fa-users"></i> Ver Lista de Clientes</button>
+        </div>
+        
+        <!-- Modal de lista de clientes -->
+        <div class="modal" id="client-list-modal">
+            <div class="modal-content" style="max-width: 600px;">
+                <div class="modal-header">
+                    <h2 class="modal-title"><i class="fas fa-users"></i> Lista de Clientes</h2>
+                    <button class="modal-close" id="close-client-list">&times;</button>
+                </div>
+                <div class="modal-body" id="client-list-body">
+                    <!-- Aquí se cargan los datos dinámicamente -->
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-submit" id="share-whatsapp">
+                        <i class="fab fa-whatsapp"></i> Compartir por WhatsApp
+                    </button>
+                </div>
+            </div>
+        </div>
+        
         <!-- Modal para editar reservas -->
         <div class="modal" id="edit-modal">
             <div class="modal-content">
@@ -964,7 +963,6 @@
                 </div>
             </div>
         </div>
-
         
         <footer>
             <p>Sistema de Gestión de Asientos &copy; 2025 | Bryan E.P 🤙</p>
@@ -973,6 +971,79 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Nueva estructura de datos unificada
+            let appData = {
+                seats: {
+                    bus: Array(55).fill().map((_, i) => ({
+                        id: i + 1,
+                        status: 'free',
+                        client: ''
+                    })),
+                    buseta: Array(28).fill().map((_, i) => ({
+                        id: i + 1,
+                        status: 'free',
+                        client: ''
+                    }))
+                },
+                payments: {}  // Almacena pagos por cliente
+            };
+
+            // Función para migrar datos antiguos
+            function migrateOldData() {
+                try {
+                    const oldData = localStorage.getItem('seatManagerData');
+                    if (oldData) {
+                        const parsedData = JSON.parse(oldData);
+                        
+                        // Verificar si son datos antiguos (sin payments)
+                        if (parsedData.bus && parsedData.buseta && !parsedData.payments) {
+                            console.log("Migrando datos antiguos...");
+                            
+                            // Migrar asientos
+                            appData.seats = parsedData;
+                            
+                            // Inicializar pagos vacíos
+                            appData.payments = {};
+                            
+                            // Guardar nueva estructura
+                            localStorage.setItem('seatManagerData', JSON.stringify(appData));
+                            
+                            console.log("Migración completada");
+                            return true;
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error en migración:", e);
+                }
+                return false;
+            }
+            
+            // Cargar datos desde localStorage
+            function loadData() {
+                const savedData = localStorage.getItem('seatManagerData');
+                if (savedData) {
+                    try {
+                        const parsedData = JSON.parse(savedData);
+                        
+                        // Si es la nueva estructura
+                        if (parsedData.seats && parsedData.payments) {
+                            appData = parsedData;
+                            return true;
+                        }
+                    } catch (e) {
+                        console.error('Error al cargar datos:', e);
+                    }
+                }
+                
+                // Intentar migrar datos antiguos
+                return migrateOldData();
+            }
+            
+            // Guardar datos en localStorage
+            function saveData() {
+                localStorage.setItem('seatManagerData', JSON.stringify(appData));
+            }
+            
             const vehicleOptions = document.querySelectorAll('.vehicle-option');
             const seatMap = document.getElementById('seat-map');
             const freeSeatsEl = document.getElementById('free-seats');
@@ -1004,41 +1075,6 @@
             const clientNameInput = document.getElementById('client-name');
             const seatCountInput = document.getElementById('seat-count');
             
-            // Datos de asientos con almacenamiento local
-            let seats = {
-                bus: Array(55).fill().map((_, i) => ({
-                    id: i + 1,
-                    status: 'free',
-                    client: ''
-                })),
-                buseta: Array(28).fill().map((_, i) => ({
-                    id: i + 1,
-                    status: 'free',
-                    client: ''
-                }))
-            };
-            
-            // Cargar datos desde localStorage
-            function loadData() {
-                const savedData = localStorage.getItem('seatManagerData');
-                if (savedData) {
-                    try {
-                        const parsedData = JSON.parse(savedData);
-                        if (parsedData.bus && parsedData.bus.length === 55 &&
-                            parsedData.buseta && parsedData.buseta.length === 28) {
-                            seats = parsedData;
-                        }
-                    } catch (e) {
-                        console.error('Error al cargar datos:', e);
-                    }
-                }
-            }
-            
-            // Guardar datos en localStorage
-            function saveData() {
-                localStorage.setItem('seatManagerData', JSON.stringify(seats));
-            }
-            
             let currentVehicle = 'bus';
             let currentSeat = null;
             
@@ -1046,6 +1082,22 @@
             loadData();
             renderSeatMap();
             updateStats();
+
+            // =====================================================
+            // INICIALIZACIÓN PRINCIPAL CON MIGRACIÓN DE DATOS
+            // =====================================================
+            const migrationDone = loadData();  // Cargar y migrar datos
+            renderSeatMap();
+            updateStats();
+        
+            if (migrationDone) {
+                console.log("Datos migrados correctamente");
+            } else {
+                console.log("No se encontraron datos antiguos para migrar");
+            }
+
+
+
             
             // Función para mostrar notificaciones personalizadas
             function showNotification(title, message, type = 'info') {
@@ -1153,7 +1205,7 @@
                 seatMap.appendChild(driverArea);
                 
                 // Crear asientos
-                seats[currentVehicle].forEach(seat => {
+                appData.seats[currentVehicle].forEach(seat => {
                     const seatEl = document.createElement('div');
                     seatEl.className = `seat ${seat.status}`;
                     seatEl.innerHTML = `
@@ -1236,7 +1288,7 @@
             
             // Actualizar estadísticas
             function updateStats() {
-                const vehicleSeats = seats[currentVehicle];
+                const vehicleSeats = appData.seats[currentVehicle];
                 const totalSeats = vehicleSeats.length;
                 const free = vehicleSeats.filter(s => s.status === 'free').length;
                 const reserved = vehicleSeats.filter(s => s.status === 'reserved').length;
@@ -1283,7 +1335,7 @@
                 if (!validateForm()) return;
                 
                 // Encontrar asientos libres
-                const freeSeats = seats[currentVehicle].filter(s => s.status === 'free');
+                const freeSeats = appData.seats[currentVehicle].filter(s => s.status === 'free');
                 
                 if (freeSeats.length < seatCount) {
                     showNotification('Error', `No hay suficientes asientos disponibles. Quedan ${freeSeats.length} asientos libres.`, 'error');
@@ -1292,10 +1344,10 @@
                 
                 // Reservar los primeros n asientos libres
                 let reservedCount = 0;
-                for (let i = 0; i < seats[currentVehicle].length && reservedCount < seatCount; i++) {
-                    if (seats[currentVehicle][i].status === 'free') {
-                        seats[currentVehicle][i].status = paymentStatus;
-                        seats[currentVehicle][i].client = clientName;
+                for (let i = 0; i < appData.seats[currentVehicle].length && reservedCount < seatCount; i++) {
+                    if (appData.seats[currentVehicle][i].status === 'free') {
+                        appData.seats[currentVehicle][i].status = paymentStatus;
+                        appData.seats[currentVehicle][i].client = clientName;
                         reservedCount++;
                     }
                 }
@@ -1324,43 +1376,26 @@
                 seatCountInput.classList.remove('input-error');
             });
             
-            // Simular algunos asientos reservados para demostración
-            setTimeout(() => {
-                // Si no hay datos guardados, crear datos de demostración
-                if (!localStorage.getItem('seatManagerData')) {
-                    // Reservar algunos asientos de ejemplo
-                    seats.bus[0].status = 'reserved';
-                    seats.bus[0].client = 'Juan Pérez';
-                    seats.bus[1].status = 'partial1';
-                    seats.bus[1].client = 'María Rodríguez';
-                    seats.bus[2].status = 'partial2';
-                    seats.bus[2].client = 'Carlos Gómez';
-                    seats.bus[3].status = 'paid';
-                    seats.bus[3].client = 'Laura Martínez';
-                    
-                    seats.buseta[0].status = 'reserved';
-                    seats.buseta[0].client = 'Ana López';
-                    seats.buseta[1].status = 'paid';
-                    seats.buseta[1].client = 'Pedro Sánchez';
-                    
-                    saveData();
-                }
-                
             // Elementos del modal de clientes
             const clientListModal = document.getElementById('client-list-modal');
             const openClientListBtn = document.getElementById('open-client-list');
             const closeClientListBtn = document.getElementById('close-client-list');
             const clientListBody = document.getElementById('client-list-body');
             const shareWhatsappBtn = document.getElementById('share-whatsapp');
-
-            // Objeto para almacenar pagos de clientes
-            let clientPayments = {};
-
-            // Mostrar modal de clientes
+            
+            // Modal de edición de pagos
+            const paymentModal = document.getElementById('payment-modal');
+            const paymentModalClient = document.getElementById('payment-modal-client');
+            const paymentAmountInput = document.getElementById('payment-amount');
+            const closePaymentModal = document.getElementById('close-payment-modal');
+            const savePaymentBtn = document.getElementById('save-payment-btn');
+            let editingClient = null;
+            
+            // Mostrar lista de clientes
             openClientListBtn.addEventListener('click', () => {
-                const allSeats = seats[currentVehicle];
+                const allSeats = appData.seats[currentVehicle];
                 const clientMap = {};
-
+                
                 // Agrupar por cliente
                 allSeats.forEach(seat => {
                     if (seat.client.trim()) {
@@ -1370,86 +1405,117 @@
                         clientMap[seat.client].push(seat.id);
                     }
                 });
-
+                
                 // Construir HTML
                 clientListBody.innerHTML = '';
                 Object.entries(clientMap).forEach(([client, seatNumbers]) => {
-                    const amount = clientPayments[client] || 0;
-
+                    // Usar appData.payments para obtener el monto
+                    const amount = appData.payments[client] || 0;
+                    
                     const div = document.createElement('div');
                     div.style.marginBottom = '15px';
                     div.innerHTML = `
                         <strong>${client}</strong> - Asientos: ${seatNumbers.join(', ')}<br>
-                        Monto pagado: ₡<span id="amount-${client}">${amount}</span>
+                        Monto pagado: ₡<span id="amount-${client}">${amount.toLocaleString('es-CR')}</span>
                         <button class="btn btn-update" onclick="editPayment('${client}')">Editar Pago</button>
                     `;
                     clientListBody.appendChild(div);
                 });
-
+                
                 clientListModal.classList.add('active');
             });
-            // Cerrar modal
-            closeClientListBtn.addEventListener('click', () => {
-            clientListModal.classList.remove('active');
-            });
-
-            // Editar monto pagado
-            window.editPayment = function (client) {
+            
+            // Función global para editar pagos
+            window.editPayment = function(client) {
                 editingClient = client;
                 paymentModalClient.textContent = `Cliente: ${client}`;
-                paymentAmountInput.value = clientPayments[client] || '';
+                paymentAmountInput.value = appData.payments[client] || '';
                 paymentModal.classList.add('active');
             };
-
-            // Compartir por WhatsApp
-            shareWhatsappBtn.addEventListener('click', () => {
-                const allSeats = seats[currentVehicle];
-                const clientMap = {};
-
-                allSeats.forEach(seat => {
-                    if (seat.client.trim()) {
-                        if (!clientMap[seat.client]) clientMap[seat.client] = [];
-                        clientMap[seat.client].push(seat.id);
-                    }
-                });
-
-                let message = '*Reservas de Clientes:*\n\n';
-                for (let client in clientMap) {
-                    const seatsList = clientMap[client].join(', ');
-                    const paid = clientPayments[client] || 0;
-                    message += `👤 ${client}:\n🎟️ Asientos: ${seatsList}\n💰 Pagado: ₡${paid}\n\n`;
-                }
-
-                const encodedMsg = encodeURIComponent(message);
-                const whatsappURL = `https://wa.me/?text=${encodedMsg}`;
-                window.open(whatsappURL, '_blank');
-            });
-
-            // Modal de edición de pago
-            const paymentModal = document.getElementById('payment-modal');
-            const paymentModalClient = document.getElementById('payment-modal-client');
-            const paymentAmountInput = document.getElementById('payment-amount');
-            const closePaymentModal = document.getElementById('close-payment-modal');
-            const savePaymentBtn = document.getElementById('save-payment-btn');
-            let editingClient = null;
-
-            // Cerrar modal de pago
-            closePaymentModal.addEventListener('click', () => {
-                paymentModal.classList.remove('active');
-            });
-
+            
             // Guardar pago
             savePaymentBtn.addEventListener('click', () => {
                 const value = parseFloat(paymentAmountInput.value);
                 if (!isNaN(value) && editingClient) {
-                    clientPayments[editingClient] = value;
-                    document.getElementById(`amount-${editingClient}`).textContent = value;
+                    // Guardar en appData.payments
+                    appData.payments[editingClient] = value;
+                    
+                    // Actualizar UI inmediatamente
+                    document.getElementById(`amount-${editingClient}`).textContent = value.toLocaleString('es-CR');
+                    
+                    // Guardar en localStorage
+                    saveData();
+                    
                     paymentModal.classList.remove('active');
                 } else {
                     alert('Por favor ingrese un monto válido.');
                 }
             });
             
+            // Cerrar modal de clientes
+            closeClientListBtn.addEventListener('click', () => {
+                clientListModal.classList.remove('active');
+            });
+            
+            // Cerrar modal de pago
+            closePaymentModal.addEventListener('click', () => {
+                paymentModal.classList.remove('active');
+            });
+            
+            // Compartir por WhatsApp
+            shareWhatsappBtn.addEventListener('click', () => {
+                const allSeats = appData.seats[currentVehicle];
+                const clientMap = {};
+                
+                allSeats.forEach(seat => {
+                    if (seat.client.trim()) {
+                        if (!clientMap[seat.client]) clientMap[seat.client] = [];
+                        clientMap[seat.client].push(seat.id);
+                    }
+                });
+                
+                let message = '*Reservas de Clientes:*\n\n';
+                for (let client in clientMap) {
+                    const seatsList = clientMap[client].join(', ');
+                    const paid = (appData.payments[client] || 0).toLocaleString('es-CR');
+                    message += `👤 ${client}:\n🎟️ Asientos: ${seatsList}\n💰 Pagado: ₡${paid}\n\n`;
+                }
+                
+                const encodedMsg = encodeURIComponent(message);
+                const whatsappURL = `https://wa.me/?text=${encodedMsg}`;
+                window.open(whatsappURL, '_blank');
+            });
+            
+            // Simular algunos asientos reservados para demostración
+            setTimeout(() => {
+                // Si no hay datos guardados, crear datos de demostración
+                if (!localStorage.getItem('seatManagerData')) {
+                    // Reservar algunos asientos de ejemplo
+                    appData.seats.bus[0].status = 'reserved';
+                    appData.seats.bus[0].client = 'Juan Pérez';
+                    appData.seats.bus[1].status = 'partial1';
+                    appData.seats.bus[1].client = 'María Rodríguez';
+                    appData.seats.bus[2].status = 'partial2';
+                    appData.seats.bus[2].client = 'Carlos Gómez';
+                    appData.seats.bus[3].status = 'paid';
+                    appData.seats.bus[3].client = 'Laura Martínez';
+                    
+                    appData.seats.buseta[0].status = 'reserved';
+                    appData.seats.buseta[0].client = 'Ana López';
+                    appData.seats.buseta[1].status = 'paid';
+                    appData.seats.buseta[1].client = 'Pedro Sánchez';
+                    
+                    // Agregar pagos de ejemplo
+                    appData.payments['Juan Pérez'] = 25000;
+                    appData.payments['María Rodríguez'] = 50000;
+                    appData.payments['Carlos Gómez'] = 75000;
+                    appData.payments['Laura Martínez'] = 100000;
+                    appData.payments['Ana López'] = 15000;
+                    appData.payments['Pedro Sánchez'] = 30000;
+                    
+                    saveData();
+                }
+                
                 renderSeatMap();
                 updateStats();
             }, 500);
